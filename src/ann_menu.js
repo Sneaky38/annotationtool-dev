@@ -1,5 +1,7 @@
 'use strict'
 
+const {dialog} = require('electron').remote
+const fs = require('fs')
 const { ipcRenderer } = require('electron')
 
 // Lorsque l'on clique sur DownloadBtn le renderer process envoie au main process json (cf main.js)
