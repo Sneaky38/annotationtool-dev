@@ -72,3 +72,13 @@ ipcRenderer.on('inputstoPrint', (event, txt) => {
     })
 
 
+
+    ipcRenderer.on('toClear', (event) => {
+      var list = document.getElementsByClassName("input-txt");
+      console.log(list)
+      for(var i = list.length-1; i=>0; i--){
+        list[i].parentElement.removeChild(list[i]);
+      }
+    })    
+
+
