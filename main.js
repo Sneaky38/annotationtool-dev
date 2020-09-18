@@ -134,6 +134,17 @@ function main () {
     console.log(mainWindow.send('inputstoPrint', updatedText))
   })
 
+//Refresh le texte
+  ipcMain.on('maj', (event ) => {
+    mainWindow.send('inputstoPrint', textData.inputs)
+  })
+
+
+// add-txt ajoute le texte venant du fichier
+  ipcMain.on('add-txt', (event, data) => {
+    mainWindow.send('inputstoPrint', textData.addinputText(data).inputs)
+    DataStructure.addText(data).text
+  })
   // clear-txt from txt list window
   // Supprime le contenu de textData
   ipcMain.on('clear-txt', (event) => {

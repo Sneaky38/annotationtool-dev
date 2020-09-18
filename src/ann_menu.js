@@ -8,6 +8,29 @@ document.getElementById('DownloadBtn').addEventListener('click', () => {
   ipcRenderer.send('json')
 })
 
+document.getElementById('Refresh').addEventListener('click', () => {
+  ipcRenderer.send('maj')
+})
+
+    // Lorsque l'on clique sur AddtxtBtn le renderer process envoie au main process add-txt
+// qui permet d'importer du texte
+document.getElementById('AddtxtBtn').addEventListener('click', () => {
+  dialog.showOpenDialog((fileNames) => {
+    if(fileNames === undefined){
+      console.log('No file was selected')
+    }else {
+      fs.readFile(fileNames[0], 'utf-8', (err, data) => {
+        if (err){
+          console.log('cannot read file', err)
+        }else{
+          ipcRenderer.send('add-txt', data)
+        }
+      })
+    }
+  })
+})
+
+
 
 // Lorsque l'on clique sur clearBtn le renderer process envoie au main process clear-txt (cf main.js)
 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -45,3 +68,5 @@ ipcRenderer.on('inputstoPrint', (event, txt) => {
       Inputtxt.innerHTML = txtItems
 
     })
+
+
