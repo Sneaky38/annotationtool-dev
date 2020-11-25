@@ -1,5 +1,5 @@
 const path = require('path')
-const { app, ipcMain } = require('electron')
+const { app, ipcMain, ipcRenderer } = require('electron')
 
 const DataJson = require('./DataJson')
 const Window = require('./Window')
@@ -17,6 +17,7 @@ const textData = new DataStore({ name: 'TextMain' })
 const DataStructure = new DataJson({ name: 'DataStruct' })
 
 const config = require('./config/DataStruct.json')
+const { text } = require('d3')
 
 function main() {
 
@@ -33,13 +34,6 @@ function main() {
     mainWindow.webContents.send('inputstoPrint', textData.inputs)
   })
 
-  /*
-  // if the render process crashes, reload the window
-  mainWindow.webContents.on('crashed', () => {
-    mainWindow.destroy();
-    main();
-  });
-  */
 
   // Fenêtre secondaire qui va nous permettre d'écrire le texte à annoter
   let addWin
@@ -50,7 +44,7 @@ function main() {
       // create a new window
       addWin = new Window({
         file: path.join('src', 'ann_type.html'),
-        width: 400,
+        width: 450,
         height: 400,
         // close with the main window
         parent: mainWindow
@@ -75,8 +69,8 @@ function main() {
       // create a new  window
       annWin = new Window({
         file: path.join('src', 'annotation.html'),
-        width: 200,
-        height: 200,
+        width: 500,
+        height: 500,
         // close with the main window
         parent: mainWindow
       })
@@ -96,14 +90,14 @@ function main() {
   let annSpecWin
 
   ipcMain.on('add-ann-specifique-window', () => {
-    console.log('add-ann-specifique-window')
+
     // if annWin does not already exist
     if (!addWin && !annWin) {
       // create a new  window
       annSpecWin = new Window({
         file: path.join('src', 'annotation_spec.html'),
-        width: 200,
-        height: 200,
+        width: 500,
+        height: 500,
         // close with the main window
         parent: mainWindow
       })
@@ -123,6 +117,68 @@ function main() {
     mainWindow.send('inputstoPrint', textData.inputs)
   })
 
+  // Fenêtre secondaire qui va nous permettre de choisir la key pour Json
+  let jsonWin
+  // create annotation window
+  ipcMain.on('add-json-window', () => {
+    // if annWin does not already exist
+    if (!jsonWin) {
+      // create a new  window
+      jsonWin = new Window({
+        file: path.join('src', 'page_json.html'),
+        width: 200,
+        height: 200,
+        // close with the main window
+        parent: mainWindow
+      })
+
+      jsonWin.once('ready-to-show', () => {
+        jsonWin.show()
+      })
+      // cleanup
+      jsonWin.on('closed', () => {
+        jsonWin = null
+      })
+    }
+  })
+
+
+  // Fenêtre secondaire qui va nous permettre de choisir la key et
+  // separator pour fichier csv
+  let csvWin
+  // create annotation window
+  ipcMain.on('add-csv-window', () => {
+    // if annWin does not already exist
+    if (!csvWin) {
+      // create a new  window
+      csvWin = new Window({
+        file: path.join('src', 'page_csv.html'),
+        width: 200,
+        height: 200,
+        // close with the main window
+        parent: mainWindow
+      })
+
+      csvWin.once('ready-to-show', () => {
+        csvWin.show()
+      })
+      // cleanup
+      csvWin.on('closed', () => {
+        csvWin = null
+      })
+    }
+  })
+
+
+  ipcMain.on('add-json-key', (event, key) => {
+    mainWindow.send('key-json', key)
+  })
+
+  ipcMain.on('add-csv-key', (event, key) => {
+    console.log("key: " + key)
+    mainWindow.send('key-csv', key)
+  })
+
   // add-text from ann_type_win
   // Lorsque le main process reçoit 'add-text' il ajoute txt dans le fichier JSON textData
   // puis envoie ce fichier à un renderer process (cf ann_menu.js)
@@ -135,11 +191,12 @@ function main() {
   })
 
 
-// add-txt ajoute le texte venant du fichier
-ipcMain.on('add-txt', (event, data) => {
-  mainWindow.send('inputstoPrint', textData.addinputText(data).inputs)
-  DataStructure.addText(data).text
-})
+  // add-txt ajoute le texte venant du fichier
+  ipcMain.on('add-txt', (event, data) => {
+    console.log(data)
+    mainWindow.send('inputstoPrint', textData.addinputText(data).inputs)
+    DataStructure.addText(data).text
+  })
 
   // clear-txt from txt list window
   // Supprime le contenu de textData
@@ -148,55 +205,56 @@ ipcMain.on('add-txt', (event, data) => {
     const updatedText = textData.getinputs()
     DataStructure.clear()
     mainWindow.send('toClear')
+    mainWindow.send('inputstoPrint', textData.inputs)
   })
 
-  /* ANNOTATION SPECIFIQUE */
-
-  ipcMain.on('text-selection', (event, txt) => {
-
-    /* Une fois qu'on a reçu l'annotation de annotation_spec.js */
-    ipcMain.on('text-selection-annotation', (event, annotation) => {
-      console.log('icpmain in ipcmain')
-      console.log(txt)
-      console.log(annotation)
-
-      const updatedText = DataStructure.addText(txt).inputs
-      console.log(updatedText)
-      console.log(DataStructure.addType(annotation).type)
-
-      // Ajouter l'objet JSON dans un fichier sauvegarde dans config 
-      fs.readFile('./config/DataStruct.json', 'utf8', (err, jsonString) => {
-        if (err) {
-          console.log("File read failed:", err)
-          return
-        }
-        const jsonString2 = JSON.parse(jsonString);
-        console.log('jsonString2')
-        console.log(jsonString2)
-
-        openJsonAdd('./config/DataStorage.json', jsonString2)
-      })
-
-    })
-  })
 
   /* ANNOTATION DE TOUT LE TEXTE */
-  ipcMain.on('add-annotation', (event, annotation) => {
-    console.log(DataStructure.addType(annotation).type)
 
-    // Ajouter l'objet JSON dans un fichier sauvegarde dans config 
-    fs.readFile('./config/DataStruct.json', 'utf8', (err, jsonString) => {
-      if (err) {
-        console.log("File read failed:", err)
-        return
+  ipcMain.on('annotate-object', (event, elt) => {
+    console.log('click');
+    console.log(elt);
+
+    ipcMain.once('add-annotation', (event, annotation) => {
+      console.log(DataStructure.addType(annotation).type)
+
+      var length_input = textData.getinputs().length;
+      var num = 0;
+      if (length_input == 1) {
+        console.log(mainWindow.send('annAddList', 'Annotation du texte', annotation, 0));
+      } else {
+        for (var i = 0; i < length_input; i++) {
+          if (elt.localeCompare(textData.getinputs()[i]) == 0) {
+            console.log(mainWindow.send('annAddList', 'Annotation Objet' + (i + 1).toString(), annotation, i));
+          }
+        }
       }
-      const jsonString2 = JSON.parse(jsonString);
-      console.log('jsonString2')
-      console.log(jsonString2)
 
-      openJsonAdd('./config/DataStorage.json', jsonString2)
+      // Ajouter l'objet JSON dans un fichier sauvegarde dans config
+
+      fs.readFile('./config/DataStruct.json', 'utf8', (err, jsonString) => {
+        if (err) {
+          console.log("DataStruct.json (reading fail) : ", err)
+        } else {
+          /* textmain contient tout le texte à annoter */
+          const textMain = elt;
+          /* jsonString contient l'annotation */
+          const dataStruct = JSON.parse(jsonString);
+
+          /* Fonctionnera avec un seul objet pour le moment */
+          var jsonString2 = { 'text': textMain, "type": dataStruct['type'] }
+
+          console.log('Objet json qui va être ajouté à DataStorage.json')
+          console.log(jsonString2)
+
+          openJsonAdd('./config/DataStorage.json', jsonString2)
+
+        }
+      })
     })
   })
+
+
   /* Fonction qui ouvre DataStorage pour ajouter les annotations */
 
   function openJsonAdd(filename, jsonString2) {
@@ -215,7 +273,7 @@ ipcMain.on('add-txt', (event, data) => {
         });
 
       } else {
-        // Il faudra laisser la possibilité de recharger le travail précédent 
+        // Il faudra laisser la possibilité de recharger le travail précédent
         console.log("DataStorage.json already exists")
         addObjectJson(filename, jsonString2)
       }
@@ -223,7 +281,7 @@ ipcMain.on('add-txt', (event, data) => {
 
   }
 
-  /* Fonction qui ajoute les objets JSON dans un fichier json */
+  /* Fonction qui ajoute les objets JSON concernant l'annotation de tout le texte dans DataStorage.json */
 
   function addObjectJson(filename, jsonString2) {
     // Ouvre filename en écriture + lecture
@@ -231,13 +289,15 @@ ipcMain.on('add-txt', (event, data) => {
       if (err) {
         console.log(err)
       } else {
-        // traitement de l'objet à ajouter
+        console.log('data addObjectJson')
+        console.log(data)
+        console.log(JSON.parse(data))
         const file = JSON.parse(data);
-        console.log('file')
-        console.log(file)
+
         file.push(jsonString2);
+
         const json = JSON.stringify(file);
-        console.log('json')
+        console.log('json addObjectJson')
         console.log(json)
 
         fs.writeFile(filename, json, 'utf8', function (err) {
@@ -251,6 +311,197 @@ ipcMain.on('add-txt', (event, data) => {
     });
   };
 
+  /* ANNOTATION SPECIFIQUE */
+
+  ipcMain.on('text-selection', (event, txt, range, objectText) => {
+    console.log("Texte sélectionné")
+    console.log(txt)
+    console.log(range)
+    console.log(objectText)
+    /* Une fois qu'on a reçu l'annotation de annotation_spec.js */
+    ipcMain.once('text-selection-annotation', (event, annotation, annotateAll) => {
+      console.log('icpmain in ipcmain')
+      console.log(txt)
+      console.log(annotation)
+      console.log(annotateAll);
+
+      console.log(mainWindow.send('annAddList', txt, annotation, 0));
+
+      /* 
+      On récupére le rang de l'objet dans le fichier d'entrée
+      Pour recalculer le range qui compte le nombre de caractère depuis le début
+      du premier objet du fichier d'entrée et non depuis le début de l'objet 
+      concerné 
+      */
+
+      var length_input = textData.getinputs().length;
+      var start = 0;
+
+      for (var i = 0; i < length_input; i++) {
+        if (txt.localeCompare(textData.getinputs()[i]) == 0 && i == 0) {
+          break;
+        } else {
+          console.log("Objet");
+          console.log(i);
+          console.log(textData.getinputs()[i].length);
+          if (objectText.localeCompare(textData.getinputs()[i]) == 0) {
+            break;
+          }
+          start = start + textData.getinputs()[i].length;
+        }
+      };
+
+      range = [range[0] - start, range[1] - start];
+      console.log(DataStructure.addType(annotation).type)
+      var jsonString2 = { 'text': objectText, 'type': annotation };
+      console.log('jsonString2');
+      console.log(jsonString2);
+
+      openJsonAddAnnSpec('./config/DataStorage.json', jsonString2, annotateAll, range, txt);
+
+      // Ajouter l'objet JSON dans un fichier sauvegarde dans config
+      fs.readFile('./config/DataStruct.json', 'utf8', (err, jsonString) => {
+        if (err) {
+          console.log("File read failed:", err);
+          return
+        }
+        const jsonString2 = JSON.parse(jsonString);
+        console.log('jsonString2')
+        console.log(jsonString2)
+
+        /*
+        Appelle la fonction pour l'annotation spécifique qui fera le nouvel objet
+        {"text": TextMain.inputs[0],
+        "type" : "", (on met un type vide pour savoir qu'on annote spécifiquement lors de la recherche d'objets dans DataStorage)
+        "entities": [(B1,E1,annotation),...,(Bn,En,annotation)]} avec n le nombre d'occurences de txt dans textMain
+        */
+
+        openJsonAddAnnSpec('./config/DataStorage.json', jsonString2, annotateAll, range, txt);
+
+      })
+    })
+  })
+
+  /* Écriture du json avec annotation spécifique */
+  function openJsonAddAnnSpec(filename, jsonString2, annotateAll, range, txt) {
+    // Ouvre DataStorage.json qui va contenir toutes les annotations
+    fs.open(filename, 'r+', function (err, fd) {
+
+      if (err) {
+        // Si n'existe pas, il est crée avec le contenu '[]'
+        fs.writeFile(filename, '[]', 'utf8', function (err) {
+          if (err) {
+            console.log(err)
+          } else {
+            console.log("DataStorage.json successfully created")
+            addObjectJsonAnnSpec(filename, jsonString2, annotateAll, range, txt)
+          }
+        });
+
+      } else {
+        // Il faudra laisser la possibilité de recharger le travail précédent
+        console.log("DataStorage.json already exists")
+        addObjectJsonAnnSpec(filename, jsonString2, annotateAll, range, txt)
+      }
+    });
+
+  }
+
+  /* Ajoute les objets JSON concernant les annotations spécifiques dans DataStorage.json */
+  function addObjectJsonAnnSpec(filename, jsonAnnSpec, annotateAll, range, txt) {
+
+    if (annotateAll) {
+      list_positions = recherche(txt, jsonAnnSpec['type'], jsonAnnSpec['text']);
+    } else {
+      list_positions = [[range[0], range[1], jsonAnnSpec['type']]]
+    }
+
+    console.log("list_positions");
+    console.log(list_positions);
+
+    // Ouvre filename en écriture + lecture
+    fs.readFile(filename, 'utf8', function (err, data) {
+      if (err) {
+        console.log(err)
+      } else {
+        /* On récupère le contenu de filename */
+        console.log('data addObjectJsonAnnSpec')
+        console.log(data)
+
+        console.log(JSON.parse(data))
+        const file = JSON.parse(data);
+
+        /* On ajoute au contenu de filename l'objet JSON qui concerne l'annotation spécifique */
+        var objet = { "text": jsonAnnSpec['text'], "type": "", "entities": list_positions };
+        console.log(objet)
+        file.push(objet);
+
+        /* Écriture dans DataStorage.json */
+        const json = JSON.stringify(file);
+        console.log('json addObjectJsonAnnSpec')
+        console.log(json)
+
+        fs.writeFile(filename, json, 'utf8', function (err) {
+          if (err) {
+            console.log(err);
+          } else {
+            console.log('Data written to file')
+          }
+        });
+      }
+    });
+  };
+
+  function recherche(motachercher, categorie, objectText) {
+    var textentier = objectText;
+    var taille = motachercher.length;
+    const txt = textentier.split(' ');
+    const mot = motachercher.split(' ');
+    const nbtext = txt.length;
+    const nbmot = mot.length;
+    var a = 0;
+    var posi = 0;
+    var matrice = [];
+    for (let i = 0; i < nbtext; i++) {
+      var début = 0;
+      var end = 0;
+      var add = 0;
+      var n = 0;
+      var j = 0;
+      while (j < nbmot) {
+        var virg = mot[j].toLowerCase().concat(',')
+        var point = mot[j].toLowerCase().concat('.')
+        if (i + j < nbtext) {
+          if (mot[j].toLowerCase() == txt[i + j].toLowerCase()) {
+            n++
+            j++
+          }
+          else if (virg == txt[i + j].toLowerCase() || point == txt[i + j].toLowerCase()) {
+            n++
+            j++
+            add++
+          }
+          else {
+            j = nbtext
+          }
+        }
+        else {
+          j = nbtext
+        }
+      }
+      if (n == nbmot) {
+        a++
+        début = posi
+        end = posi + taille + add
+        var tab = [début, end, categorie]
+        matrice.push(tab)
+      }
+      posi = posi + txt[i].length + 1
+      console.log("posi Recherche")
+      console.log(posi)
+    }
+    return matrice
+  }
 
   ipcMain.on('json', (event) => {
 
@@ -259,20 +510,85 @@ ipcMain.on('add-txt', (event, data) => {
         console.log("File read failed:", err)
       }
       else {
-        console.log('tentative de téléchargement')
-        const jsonString2 = JSON.parse(jsonString);
-        console.log(jsonString2)
-        const json = JSON.stringify(jsonString2)
-        console.log(json)
-
-        fs.writeFile('DataStructure.json', json, (err) => {
+        /* Ouvrir DataStruct.json pour récupérer le texte qu'on stocke dans textToAnn  */
+        fs.readFile('./config/DataStruct.json', 'utf8', (err, textToAnn) => {
           if (err) {
-            alert("An error ocurred creating the file " + err.message)
+            console.log("DataStruct failed to read", err)
           }
           else {
-            console.log("Fichier écrit")
+            console.log('tentative de téléchargement')
+
+            /* Parsing de DataStorage.json fichier de sauvegarde de toutes les annotations et le texte leur étant associé */
+            const contentDataStorage = JSON.parse(jsonString);
+            console.log(contentDataStorage);
+
+            /* On récupère le texte à annoter qui est dans TextMain.json */
+            console.log("textToAnn");
+            //var textToAnn = textData.getinputs()[0];
+            var textToAnn = textData.getinputs();
+            console.log(textToAnn);
+
+            var jsonToDownload = [];
+
+
+            /* Recherche de toutes les annotations liées au texte */
+            for (var l = 0; l < textToAnn.length; l++) {
+              var entities = [];
+              var type = [];
+              for (var i = 0; i < contentDataStorage.length; i++) {
+                var found = 0;
+
+                if (textToAnn[l].localeCompare(contentDataStorage[i]['text']) == 0) {
+
+                  /* Si Annotation spécifique, on sait que type est vide */
+                  if (contentDataStorage[i]['type'] == '') {
+                    entities = entities.concat(contentDataStorage[i]['entities']);
+                  }
+                  /* Sinon */
+                  else {
+                    /* Vérification pour éviter les doublons dans type */
+                    if (type.length == 0) {
+                      type.push(contentDataStorage[i]['type']);
+                    }
+                    else {
+                      for (var j = 0; j < type.length; j++) {
+                        if (type[j].localeCompare(contentDataStorage[i]['type']) == 0) {
+                          found = 1;
+                        }
+                      }
+                      if (found == 0) {
+                        type.push(contentDataStorage[i]['type']);
+                      }
+                    }
+
+                  }
+                };
+
+
+              };
+
+              var objet = { "text": textToAnn[l], "entities": entities, "type": type };
+              jsonToDownload.push(objet);
+
+            };
+
+            console.log('Objet final');
+            console.log(jsonToDownload);
+
+            /* Écriture de DataStructure.json qui est le fichier téléchargé par l'utilisateur */
+            const json = JSON.stringify(jsonToDownload)
+            console.log(json)
+
+            fs.writeFile('DataStructure.json', json, (err) => {
+              if (err) {
+                alert("An error ocurred creating the file " + err.message)
+              }
+              else {
+                console.log("Fichier écrit")
+              }
+            });
           }
-        });
+        })
       }
     })
   });
