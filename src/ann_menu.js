@@ -69,8 +69,8 @@ document.getElementById('AddtxtBtn').addEventListener('click', () => {
             }else{
               const obj = data.split('{')
               for (var i = 1; i<obj.length; i++){
-                const text = obj[i].split('\'' + key + '\'')
-                const txt = text[1].split('\'')
+                const text = obj[i].split('\"' + key + '\"')
+                const txt = text[1].split('\"')
                 ipcRenderer.send('add-txt', txt[1])
               }
             }
