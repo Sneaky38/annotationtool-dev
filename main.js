@@ -69,8 +69,8 @@ function main() {
       // create a new  window
       annWin = new Window({
         file: path.join('src', 'annotation.html'),
-        width: 500,
-        height: 500,
+        width: 450,
+        height: 180,
         // close with the main window
         parent: mainWindow
       })
@@ -96,8 +96,8 @@ function main() {
       // create a new  window
       annSpecWin = new Window({
         file: path.join('src', 'annotation_spec.html'),
-        width: 500,
-        height: 500,
+        width: 450,
+        height: 180,
         // close with the main window
         parent: mainWindow
       })
@@ -126,8 +126,8 @@ function main() {
       // create a new  window
       jsonWin = new Window({
         file: path.join('src', 'page_json.html'),
-        width: 200,
-        height: 200,
+        width: 450,
+        height: 180,
         // close with the main window
         parent: mainWindow
       })
@@ -153,8 +153,8 @@ function main() {
       // create a new  window
       csvWin = new Window({
         file: path.join('src', 'page_csv.html'),
-        width: 200,
-        height: 200,
+        width: 450,
+        height: 180,
         // close with the main window
         parent: mainWindow
       })
